@@ -14,7 +14,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
-        <title>My Next.js App, Modified again</title>
+        <title>My Next.js App, Modified again and again</title>
       </head>
       <body>{children}</body>
     </html>
