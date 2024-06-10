@@ -1,16 +1,16 @@
 pipeline {
     agent any
     environment {
-        GKE_PROJECT = 'your-gcp-project-id'  // Sostituisci con il tuo ID progetto GCP
-        GKE_CLUSTER = 'your-gke-cluster-name'  // Sostituisci con il nome del tuo cluster GKE
-        GKE_ZONE = 'your-gke-cluster-zone'  // Sostituisci con la zona del tuo cluster GKE
-        GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-credentials-id')  // ID delle credenziali GCP in Jenkins
-        GITHUB_TOKEN = credentials('github-token')  // ID del token GitHub in Jenkins
+        GKE_PROJECT = credentials('gcp-project-id')  
+        GKE_CLUSTER = credentials('gcp-cluster-name')  
+        GKE_ZONE = 'us-central1'  
+        GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-credentials-id') 
+        GITHUB_TOKEN = credentials('github-token')  
     }
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'master', url: 'https://github.com/gmann7/HelloJ.git', credentialsId: GITHUB_TOKEN  
+                git branch: "${env.BRANCH_NAME}", url: "https://github.com/gmann7/HelloJ.git"
             }
         }
         stage('Set up GCloud') {
@@ -30,7 +30,7 @@ pipeline {
         stage('Create Namespace') {
             steps {
                 script {
-                    def namespace = "review-${env.CHANGE_ID}"
+                    def namespace = "review-${env.BRANCH_NAME}"
                     sh "kubectl create namespace ${namespace}"
                 }
             }
@@ -38,7 +38,7 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    def namespace = "review-${env.CHANGE_ID}"
+                    def namespace = "review-${env.BRANCH_NAME}"
                     sh """
                     kubectl apply -f k8s/deployment.yaml -n ${namespace}
                     kubectl apply -f k8s/service.yaml -n ${namespace}
@@ -46,13 +46,30 @@ pipeline {
                 }
             }
         }
+        stage('Comment PR with URL') {
+            steps {
+                script {
+                    def namespace = "review-${env.BRANCH_NAME}"
+                    def prUrl = "http://${namespace}.my-app.com"
+                    sh """
+                    curl -s -H "Authorization: token ${GITHUB_TOKEN}" \\
+                      -X POST \\
+                      -d "{\\"body\\": \\"Review app is available at: ${prUrl}\\"}" \\
+                      "https://api.github.com/repos/your-repo/issues/${env.CHANGE_ID}/comments"
+                    """
+                }
+            }
+        }
         
     }
     post {
-        always {
+        changed {
             script {
-                def namespace = "review-${env.CHANGE_ID}"
-                sh "kubectl delete namespace ${namespace}"
+                // Check if the current branch is merged into master
+                if (env.BRANCH_NAME == 'master') {
+                    // Destroy the previously deployed pod
+                    sh "kubectl delete pod -n review-${env.BRANCH_NAME}"
+                }
             }
         }
     }

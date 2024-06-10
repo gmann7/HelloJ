@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-j-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hello-j
+  template:
+    metadata:
+      labels:
+        app: hello-j
+    spec:
+      containers:
+        - name: hello-j-container
+          image: nginx:alpine # Use a lightweight base image
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: app-volume
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: app-volume
+          emptyDir: {}
